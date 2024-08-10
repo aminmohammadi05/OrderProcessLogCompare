@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 import re
 import pandas as pd
+import json
 
 filter_str_list = []
 
@@ -54,14 +55,51 @@ def write_to_file(output_file_path, splitted_list):
         extract_flow(styled_line)
         output_file.write(styled_line)
         output_file.write('=' * 80 + '\n')
-
-
+def join_nested_strings(nested_list):
+    result = []
+    for item in nested_list:
+        if isinstance(item, list):
+            result.append(join_nested_strings(item))
+        else:
+            result.append(str(item))
+    return '\n'.join(result)
+def collect_keys(obj, parent_key=''):
+    keys = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k != 'Deep':
+                full_key = f"{parent_key}.{k}" if parent_key else k
+                keys.append(full_key)
+                keys.extend(collect_keys(v, full_key))
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            full_key = f"{parent_key}[{i}]"
+            keys.append(item)
+    return keys
 def extract_flow(styled_line):
     with open('flow_file.log', 'w', encoding='utf-8') as flow_file:
         result = []
         for line in styled_line.split('=' * 80):
             documentOutCome = line.replace('\n', '')
             index = 0
+            logData = None
+            if documentOutCome and documentOutCome.split('::')[4]:
+                logData = json.loads(documentOutCome.split('::')[4])
+                keys = collect_keys(logData)
+                result.append(keys)
+        total_string = join_nested_strings(result)
+        res = flow_file.write(total_string)
+        print(res)
+
+def extract_flow_2(styled_line):
+    with open('flow_file.log', 'w', encoding='utf-8') as flow_file:
+        result = []
+        for line in styled_line.split('=' * 80):
+            documentOutCome = line.replace('\n', '')
+            index = 0
+            BusinessData = None
+            if documentOutCome.split('::')[3] == 'Business':
+                BusinessData = json.loads(documentOutCome.split('::')[4])
             sepResult = [part.strip() for part in
              documentOutCome.split('::') if
              'called at' in part]

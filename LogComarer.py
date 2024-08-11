@@ -11,7 +11,7 @@ filter_str_list = []
 
 def style_log_lines(df, filename):
     extraInfo = []
-    majorNodes = []
+
 
     splitted_list = []
     index = 0
@@ -27,8 +27,8 @@ def style_log_lines(df, filename):
 
             index += 1
 
-    write_to_file(filename, splitted_list)
-    return majorNodes
+
+    return splitted_list
 def is_null_or_empty(string):
     return string.strip() is None or string.strip() == ''
 def read_logs_from_file(input_file_path):
@@ -41,6 +41,7 @@ def read_logs_from_file(input_file_path):
 
 
 def write_to_file(output_file_path, splitted_list):
+    styled_line = ''
     with open(output_file_path, 'w', encoding='utf-8') as output_file:
         cline = ''
         for line in splitted_list:
@@ -52,9 +53,10 @@ def write_to_file(output_file_path, splitted_list):
             cline += '\n'
 
         styled_line = '' + cline.strip() + '\n\n'
-        extract_flow(styled_line)
+
         output_file.write(styled_line)
         output_file.write('=' * 80 + '\n')
+    return styled_line
 def join_nested_strings(nested_list):
     result = []
     for item in nested_list:
@@ -76,8 +78,21 @@ def collect_keys(obj, parent_key=''):
             full_key = f"{parent_key}[{i}]"
             keys.append(item)
     return keys
-def extract_flow(styled_line):
-    with open('flow_file.log', 'w', encoding='utf-8') as flow_file:
+def remove_alphanumeric_suffix(input_string):
+    return re.sub(r'[a-zA-Z0-9]+$', '', input_string)
+def clean_line(line):
+    parts = re.split(r'[:._-]', line)
+    filtered_parts = [part for part in parts if re.match(r'^[a-zA-Z]+$', part)]
+    return '-'.join(filtered_parts)
+
+def process_file(input_file, output_file):
+    with open(input_file, 'r') as infile, open(output_file, 'w') as outfile:
+        for line in infile:
+            cleaned_line = clean_line(line.strip())
+            outfile.write(cleaned_line + '\n')
+
+def extract_flow(output_file_path, styled_line):
+    with open(output_file_path, 'w', encoding='utf-8') as flow_file:
         result = []
         for line in styled_line.split('=' * 80):
             documentOutCome = line.replace('\n', '')
@@ -88,48 +103,31 @@ def extract_flow(styled_line):
                 keys = collect_keys(logData)
                 result.append(keys)
         total_string = join_nested_strings(result)
+        # cleaned_content = re.sub(r'[a-zA-Z0-9]+$', '', total_string)
         res = flow_file.write(total_string)
         print(res)
 
-def extract_flow_2(styled_line):
-    with open('flow_file.log', 'w', encoding='utf-8') as flow_file:
-        result = []
-        for line in styled_line.split('=' * 80):
-            documentOutCome = line.replace('\n', '')
-            index = 0
-            BusinessData = None
-            if documentOutCome.split('::')[3] == 'Business':
-                BusinessData = json.loads(documentOutCome.split('::')[4])
-            sepResult = [part.strip() for part in
-             documentOutCome.split('::') if
-             'called at' in part]
-            if len(sepResult) > 0 :
-                segmentHasArrow = False
-                for segment in re.split(r'\#\d+\:', sepResult[0]):
-                    if is_null_or_empty(segment) == False and index < 3:
-                        if 'called at' in segment:
-                            res = re.split('called at', segment)
-                            # if '->' in res[0] :
-                            segmentHasArrow = True
-                            result.append(documentOutCome.split('::')[3] + '::' + documentOutCome.split('::')[4])
-                            result.append(res[0] + ' ' + re.split('/', res[1])[-1])
 
-                            index += 1
-                if segmentHasArrow == True:
-                    result.append('=' * 80)
-        flow_file.write('\n'.join(result))
 
 df_new_logs = read_logs_from_file('dev.log')
-style_log_lines(df_new_logs, 'new_style_log_lines.log')
+splitted_list = style_log_lines(df_new_logs, 'new_style_log_lines.log')
+styled_line = write_to_file("new_splitted_list.log", splitted_list)
+extract_flow('new_flow_file.log', styled_line)
+process_file('new_flow_file.log', 'new_flow_file_filtered.log')
+df_new = pd.read_csv('new_flow_file_filtered.log', header=None, names=['Line'])
 df_new_logs = df_new_logs.drop([3, 4, 5], axis=1)
 
 df_old_logs = read_logs_from_file('old-dev.log')
-style_log_lines(df_old_logs, 'old_style_log_lines.log')
+splitted_list = style_log_lines(df_old_logs, 'old_style_log_lines.log')
+styled_line = write_to_file("old_splitted_list.log", splitted_list)
+extract_flow('old_flow_file.log', styled_line)
+process_file('old_flow_file.log', 'old_flow_file_filtered.log')
+df_old = pd.read_csv('old_flow_file_filtered.log', header=None, names=['Line'])
 df_old_logs = df_old_logs.drop([3, 4, 5], axis=1)
 
 
-result = df_new_logs.equals(df_old_logs)
-differences = df_new_logs.compare(df_old_logs)
+result = df_new.equals(df_old)
+differences = df_new.compare(df_old)
 print(result)
 print(differences)
 

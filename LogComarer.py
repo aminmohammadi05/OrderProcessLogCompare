@@ -125,11 +125,18 @@ process_file('old_flow_file.log', 'old_flow_file_filtered.log')
 df_old = pd.read_csv('old_flow_file_filtered.log', header=None, names=['Line'])
 df_old_logs = df_old_logs.drop([3, 4, 5], axis=1)
 
+df_new_aligned, df_old_aligned = df_new.align(df_old, join='outer', axis=0)
+
+# Compare DataFrames
+diff = df_new_aligned.compare(df_old_aligned, keep_shape=True, keep_equal=True)
+
+
+
 
 result = df_new.equals(df_old)
-differences = df_new.compare(df_old)
+
 print(result)
-print(differences)
+print(diff)
 
 
 
